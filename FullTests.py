@@ -71,6 +71,9 @@ randomID = str(returnRandom(result._response))
 randomID = randomID[1:-1]
 
 
+print("-------------- Sonos ID: " + randomID + " --------------")
+print
+
 # In[372]:
 
 def connect2():
@@ -99,7 +102,6 @@ def format_pandas2(results): # dict results
     
 pandas_json = format_pandas2(result)
 deltron = pd.read_json(pandas_json, orient = "records")
-
 
 # In[373]:
 
@@ -399,7 +401,8 @@ def formatPandas4(results): # dict results
     records = []
     totalHours = 0.0;
     for row in results.get("rows"):
-        totalHours = totalHours + (float)(row.get("values")[1])
+    	totalHours = totalHours + (float)(row.get("values")[1])
+    totalHours = round(totalHours,4)
     for row in results.get("rows"):
         formatted = {}
         if int(row.get("values")[1]) != 0:
@@ -772,7 +775,7 @@ api_client = Client(HOST, TOKEN)
 api_client._verify_certs = False
 
 def create_query8():
-    start = datetime.now() - timedelta(14)
+    start = datetime.now() - timedelta(60)
     end = datetime.now()
     query = Query('sonos_usage', start, end)
     query.add_query_info(
@@ -1089,7 +1092,7 @@ api_client = Client(HOST, TOKEN)
 api_client._verify_certs = False
 
 def create_query11():
-    start = datetime.now() - timedelta(60)
+    start = datetime(2016, 8, 1)
     end = datetime.now()
     query = Query('sonos_usage', start, end)
     query.add_query_info(
@@ -1180,7 +1183,7 @@ def format_pandas12(results): # dict results
     records = []
     for row in results:  
         formatted = {}
-        formatted["RoomName"] = row[2]
+        formatted["Room"] = row[2]
         formatted["Month of Year"] = str(row[3])
         formatted["Year"] = str(row[4])
         ph = float(row[1])
@@ -1192,7 +1195,6 @@ def format_pandas12(results): # dict results
     
 pandas_json = format_pandas12(result)
 deltron = pd.read_json(pandas_json, orient = "records")
-
 
 # In[368]:
 
@@ -1252,7 +1254,7 @@ def formatPandas12(results): # dict results
     for key in dictionary:
         formatted = {}
         formatted["Room"] = key[2]
-        formatted["Month"] = key[0]
+        formatted["Month of Year"] = key[0]
         formatted["Year"] = key[1]
         formatted["PlayHours"] = dictionary[key]
         if (dictionary[key] != 0.0000):
@@ -1315,7 +1317,7 @@ api_client = Client(HOST, TOKEN)
 api_client._verify_certs = False
 
 def create_query13():
-    start = datetime(2016, 8, 1)
+    start = datetime.now() - timedelta(60)
     end = datetime.now()
     query = Query('sonos_usage', start, end)
     query.add_query_info(
@@ -1899,3 +1901,111 @@ print_full(deltron)
 
 
 # In[ ]:
+
+def connect19():
+    conn = pymysql.connect(host='deltron-production-cluster.cluster-cmjiejvhd8pl.us-east-1.rds.amazonaws.com', port=3306, user='deltron_reader', passwd='ylQo3bQ(!EL8RJ[', db='deltron_metrics', connect_timeout=5)
+    cur = conn.cursor()
+    cur.callproc('deltron_metrics.GetAveragePlayHoursByDayOfWeek')
+    result = cur.fetchall()
+    return result
+
+result = connect19()
+
+def format_pandas19(results): # dict results
+    records = []
+    for row in results:  
+        formatted = {}
+        dayOfWeek = str(row[0])
+        playHours = float(row[1])
+        playHours = round(playHours, 4)
+        formatted["PlayHours"] = str(playHours)
+        formatted["Day of Week"] = dayOfWeek
+        records.append(formatted)            
+    return json.dumps(records)
+    pandas_json = format_pandas19(result._response)
+    
+#format_pandas(result)
+pandas_json = format_pandas19(result)
+deltron = pd.read_json(pandas_json, orient = "records")
+
+HOST = 'interana.sonos.com'
+TOKEN = 'zOoNAfVz4tlo0guQ6ACEEZ0IA7B5tf9kTZF7B2hmNKiX8kTYTbHdhBHHwX6BXYGyLdxg1K9C7ZEuBdGYwY9Zxu3YYmzW0000'
+
+api_client = Client(HOST, TOKEN)
+api_client._verify_certs = False
+
+def create_query19():
+    start = datetime(2016, 8, 1)
+    end = datetime.now()
+    query = Query('sonos_usage', start, end)
+    query.add_query_info(
+        type=SINGLE_MEASURE,
+        aggregator='avg',
+        column='Usage.PlayHours',
+        filter=''
+    )
+    query.add_params(
+        max_groups=10000,
+        group_by=["day_of_week"],
+        sampled=False
+    )
+    
+    return query
+
+# FAILS UNTIL DNS ISSUE RESOLVED
+try:
+    result = api_client.query(create_query19())
+    results = json.dumps(result._response,sort_keys=True,indent=4, separators=(',', ': '))
+except InteranaError as e:
+    print(e.code, e.error)
+    print(e.message)
+    
+def formatPandas19(results): # dict results
+    records = []
+    for row in results.get("rows"):
+        formatted = {}            
+        try:
+            dayOfWeek = ""
+            day = int(row.get("values")[0][0])
+            if (day == 1):
+                dayOfWeek = "Monday"
+            elif (day == 2):
+                dayOfWeek = "Tuesday"
+            elif (day == 3):
+                dayOfWeek = "Wednesday"
+            elif (day == 4):
+                dayOfWeek = "Thursday"
+            elif (day == 5):
+                dayOfWeek = "Friday"
+            elif (day == 6):
+                dayOfWeek = "Saturday"
+            elif (day == 7):
+                dayOfWeek = "Sunday"
+            playHours = float(row.get("values")[1])
+            playHours = round(playHours, 4)
+            formatted["PlayHours"] = playHours
+            formatted["Day of Week"] = dayOfWeek
+            if (playHours != 0.0000):
+                records.append(formatted)       
+        except IndexError:
+            pass
+    return json.dumps(records)
+    
+pandas_json = formatPandas19(result._response)
+
+interana = pd.read_json(pandas_json,orient="records")
+
+
+# Interana test for GetAveragePlayHoursByDayOfWeek
+print("\n")
+print("----GetAveragePlayHoursByDayOfWeek----")
+print("\n")
+print("Interana: ")
+print("\n")
+print_full(interana)
+
+# Deltron test for GetAveragePlayHoursByDayOfWeek
+print("\n")
+print("Deltron: ")
+print("\n")
+print_full(deltron)
